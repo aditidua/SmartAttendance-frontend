@@ -28,7 +28,7 @@ export default function OAuthCallback() {
 
     // ✅ Case 2: New user (incomplete profile)
     else if (email && message === "incomplete") {
-      navigate(`/complete-registration?email=${email}`, { replace: true });
+     navigate(`/complete-registration?email=${email}`, { replace: true });
     }
 
     // ❌ Case 3: Something went wrong
