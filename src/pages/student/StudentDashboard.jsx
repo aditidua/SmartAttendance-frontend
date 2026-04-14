@@ -1,45 +1,45 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import Navbar from "../../components/Navbar";
 import { joinClass, getEnrolledClasses } from "../../api/studentApi";
-
-const DUMMY_CLASSES = [
-  { classId: 1, className: "Mathematics 101", classCode: "4829", teacherName: "Dr. Sharma" },
-  { classId: 2, className: "Physics Advanced", classCode: "7341", teacherName: "Prof. Mehta" },
-  { classId: 3, className: "Chemistry Lab", classCode: "1956", teacherName: "Ms. Kaur" },
-];
+import Navbar from "../../components/Navbar";
 
 export default function StudentDashboard() {
   const { user, token } = useAuth();
   const navigate = useNavigate();
 
-  const [classes, setClasses] = useState(DUMMY_CLASSES);
+  const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showPopup, setShowPopup] = useState(false);
+  const [code, setCode] = useState("");
+  const [joining, setJoining] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
   useEffect(() => {
+    loadClasses();
+  }, []);
+
   const loadClasses = async () => {
     try {
       const data = await getEnrolledClasses(user.id, token);
       setClasses(data);
     } catch (err) {
       console.error("Failed to load classes", err);
+    } finally {
+      setLoading(false);
     }
   };
-  loadClasses();
-}, []);
-  const [showPopup, setShowPopup] = useState(false);
-  const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   const handleJoin = async () => {
-    if (code.length !== 4) return setError("Please enter a valid 4-digit code.");
-    setLoading(true);
+    if (code.length < 4) return setError("Please enter the class code.");
+    setJoining(true);
     setError("");
     try {
       await joinClass(user.id, code, token);
       setSuccess("Class joined successfully!");
       setCode("");
+      await loadClasses(); // refresh class list
       setTimeout(() => {
         setShowPopup(false);
         setSuccess("");
@@ -47,12 +47,12 @@ export default function StudentDashboard() {
     } catch (err) {
       setError("Invalid code or class not found.");
     } finally {
-      setLoading(false);
+      setJoining(false);
     }
   };
 
   const handleCodeChange = (e) => {
-    const val = e.target.value.replace(/\D/g, "").slice(0, 4);
+    const val = e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 6);
     setCode(val);
     setError("");
   };
@@ -68,18 +68,30 @@ export default function StudentDashboard() {
             My Classes
           </h1>
           <p className="text-sm mt-1" style={{ color: "#8fa8bc" }}>
-            {classes.length} {classes.length === 1 ? "class" : "classes"} joined
+            {loading ? "Loading..." : `${classes.length} ${classes.length === 1 ? "class" : "classes"} joined`}
           </p>
         </div>
 
-        {/* Class Cards */}
-        {classes.length === 0 ? (
+        {/* Loading */}
+        {loading && (
+          <div className="text-center py-20">
+            <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-3"
+              style={{ borderColor: "#dbe4ee", borderTopColor: "#004DB2" }} />
+            <p className="text-sm" style={{ color: "#8fa8bc" }}>Loading your classes...</p>
+          </div>
+        )}
+
+        {/* Empty */}
+        {!loading && classes.length === 0 && (
           <div className="text-center py-16">
             <p className="text-sm" style={{ color: "#8fa8bc" }}>
               You haven't joined any classes yet.
             </p>
           </div>
-        ) : (
+        )}
+
+        {/* Class Cards */}
+        {!loading && classes.length > 0 && (
           <div className="grid gap-4 mb-8"
             style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
             {classes.map((cls) => (
@@ -96,14 +108,14 @@ export default function StudentDashboard() {
                     {cls.className}
                   </h2>
                   <span className="text-xs px-2.5 py-1 rounded-full shrink-0"
-                    style={{ background: "#e6eef9", color: "#004DB2" }}>
+                    style={{ background: "#e6eef9", color: "#004DB2", letterSpacing: "0.06em" }}>
                     {cls.classCode}
                   </span>
                 </div>
                 <div className="flex items-center justify-between pt-3"
                   style={{ borderTop: "0.5px solid #dbe4ee" }}>
                   <span className="text-xs" style={{ color: "#8fa8bc" }}>
-                    {cls.teacherName}
+                    Teacher ID: {cls.teacher_id}
                   </span>
                   <span className="text-xs" style={{ color: "#004DB2" }}>View →</span>
                 </div>
@@ -113,7 +125,7 @@ export default function StudentDashboard() {
         )}
 
         {/* Join New Class Button */}
-        <div className="flex justify-center">
+        <div className="flex justify-center mt-4">
           <button
             onClick={() => { setShowPopup(true); setError(""); setCode(""); }}
             className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all"
@@ -140,23 +152,21 @@ export default function StudentDashboard() {
               Join a Class
             </h2>
             <p className="text-sm mb-6" style={{ color: "#8fa8bc" }}>
-              Enter the 4-digit code your teacher shared with you.
+              Enter the 6-character code your teacher shared with you.
             </p>
 
-            {/* 4-digit code input */}
             <input
               type="text"
-              inputMode="numeric"
-              maxLength={4}
+              maxLength={6}
               value={code}
               onChange={handleCodeChange}
-              placeholder="_ _ _ _"
-              className="w-full text-center text-3xl tracking-widest py-4 rounded-xl outline-none mb-4"
+              placeholder="e.g. AB12CD"
+              className="w-full text-center text-2xl tracking-widest py-4 rounded-xl outline-none mb-4"
               style={{
                 border: "0.5px solid #dbe4ee",
                 color: "#004DB2",
                 fontFamily: "Georgia, serif",
-                letterSpacing: "0.4em"
+                letterSpacing: "0.3em"
               }}
               onFocus={e => e.target.style.borderColor = "#004DB2"}
               onBlur={e => e.target.style.borderColor = "#dbe4ee"}
@@ -176,11 +186,11 @@ export default function StudentDashboard() {
               </button>
               <button
                 onClick={handleJoin}
-                disabled={loading || code.length !== 4}
+                disabled={joining || code.length < 4}
                 className="flex-1 py-3 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                 style={{ background: "#004DB2" }}
               >
-                {loading ? "Joining..." : "Join Class"}
+                {joining ? "Joining..." : "Join Class"}
               </button>
             </div>
           </div>
