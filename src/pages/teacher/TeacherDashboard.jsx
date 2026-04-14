@@ -1,19 +1,30 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { fetchTeacherClasses } from "../../api/teacherApi";
 import Navbar from "../../components/Navbar";
 
-// Dummy data — replace with real API once backend is ready
-const DUMMY_CLASSES = [
-  { classId: 1, className: "Mathematics 101", classCode: "4829", studentCount: 24 },
-  { classId: 2, className: "Physics Advanced", classCode: "7341", studentCount: 18 },
-  { classId: 3, className: "Chemistry Lab", classCode: "1956", studentCount: 0 },
-];
-
 export default function TeacherDashboard() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
-  const [classes, setClasses] = useState(DUMMY_CLASSES);
+  const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const loadClasses = async () => {
+      try {
+        const data = await fetchTeacherClasses(user.id, token);
+        setClasses(data);
+      } catch (err) {
+        setError("Failed to load classes.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadClasses();
+  }, []);
 
   return (
     <div className="min-h-screen" style={{ background: "#f0f4f8" }}>
@@ -27,7 +38,7 @@ export default function TeacherDashboard() {
               My Classes
             </h1>
             <p className="text-sm mt-1" style={{ color: "#8fa8bc" }}>
-              {classes.length} {classes.length === 1 ? "class" : "classes"} created
+              {loading ? "Loading..." : `${classes.length} ${classes.length === 1 ? "class" : "classes"} created`}
             </p>
           </div>
           <button
@@ -39,15 +50,35 @@ export default function TeacherDashboard() {
           </button>
         </div>
 
-        {/* Class Cards */}
-        {classes.length === 0 ? (
+        {/* Loading */}
+        {loading && (
+          <div className="text-center py-20">
+            <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-3"
+              style={{ borderColor: "#dbe4ee", borderTopColor: "#004DB2" }} />
+            <p className="text-sm" style={{ color: "#8fa8bc" }}>Loading your classes...</p>
+          </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div className="text-center py-20">
+            <p className="text-sm" style={{ color: "#e24b4a" }}>{error}</p>
+          </div>
+        )}
+
+        {/* Empty */}
+        {!loading && !error && classes.length === 0 && (
           <div className="text-center py-20">
             <p className="text-sm" style={{ color: "#8fa8bc" }}>
               No classes yet. Create your first class!
             </p>
           </div>
-        ) : (
-          <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+        )}
+
+        {/* Class Cards */}
+        {!loading && !error && classes.length > 0 && (
+          <div className="grid gap-4"
+            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
             {classes.map((cls) => (
               <div
                 key={cls.classId}
@@ -57,20 +88,17 @@ export default function TeacherDashboard() {
                 onMouseEnter={e => e.currentTarget.style.borderColor = "#004DB2"}
                 onMouseLeave={e => e.currentTarget.style.borderColor = "#dbe4ee"}
               >
-                {/* Class name + code */}
                 <div className="flex items-start justify-between mb-4">
                   <h2 className="text-sm font-medium pr-2" style={{ color: "#004DB2" }}>
                     {cls.className}
                   </h2>
                   <span
                     className="text-xs font-medium px-2.5 py-1 rounded-full shrink-0"
-                    style={{ background: "#e6eef9", color: "#004DB2", letterSpacing: "0.08em" }}
+                    style={{ background: "#e6eef9", color: "#004DB2", letterSpacing: "0.06em" }}
                   >
                     {cls.classCode}
                   </span>
                 </div>
-
-                {/* Student count */}
                 <div className="flex items-center justify-between pt-3"
                   style={{ borderTop: "0.5px solid #dbe4ee" }}>
                   <div className="flex items-center gap-2">
@@ -81,7 +109,7 @@ export default function TeacherDashboard() {
                       <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                     </svg>
                     <span className="text-xs" style={{ color: "#8fa8bc" }}>
-                      {cls.studentCount} {cls.studentCount === 1 ? "student" : "students"}
+                      {cls.enrolledStudents?.length ?? 0} students
                     </span>
                   </div>
                   <span className="text-xs" style={{ color: "#004DB2" }}>View →</span>
