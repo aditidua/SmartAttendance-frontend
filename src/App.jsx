@@ -34,7 +34,7 @@ export default function App() {
       <Route element={<ProtectedRoute allowedRole="STUDENT" />}>
         <Route path="/student/dashboard" element={<StudentDashboard />} />
         <Route path="/student/class/:classId" element={<ClassDetail />} />
-        <Route path="/student/join-class" element={<JoinClass />} />
+        
         <Route path="/student/mark-attendance" element={<MarkAttendance />} />
         <Route path="/student/profile" element={<MyProfile />} />
       </Route>
