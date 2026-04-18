@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { jwtDecode } from "jwt-decode";
 
 const AuthContext = createContext();
@@ -6,11 +6,10 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); // 🔥 important
+  const [loading, setLoading] = useState(true);
 
-  // ✅ Run once when app loads
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
+    const storedToken = sessionStorage.getItem("token");
 
     if (storedToken) {
       try {
@@ -19,32 +18,29 @@ export const AuthProvider = ({ children }) => {
         setUser(decoded);
       } catch (err) {
         console.error("Invalid token");
-        localStorage.removeItem("token");
+        sessionStorage.removeItem("token");
       }
     }
 
-    setLoading(false); // ✅ auth ready
+    setLoading(false);
   }, []);
 
-  // ✅ Login function
-  const login = (newToken) => {
+  const login = useCallback((newToken) => {
     try {
       const decoded = jwtDecode(newToken);
-
-      localStorage.setItem("token", newToken);
+      sessionStorage.setItem("token", newToken);
       setToken(newToken);
       setUser(decoded);
     } catch (err) {
       console.error("Token decode failed");
     }
-  };
+  }, []);
 
-  // ✅ Logout function
-  const logout = () => {
-    localStorage.removeItem("token");
+  const logout = useCallback(() => {
+    sessionStorage.removeItem("token");
     setToken(null);
     setUser(null);
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ token, user, login, logout, loading }}>

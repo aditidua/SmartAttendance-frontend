@@ -13,15 +13,12 @@ export default function Navbar() {
 
   const teacherLinks = [
     { label: "Dashboard", path: "/teacher/dashboard" },
-    { label: "Create Class", path: "/teacher/create-class" },
-    { label: "Attendance", path: "/teacher/attendance" },
+    { label: "Create Class", path: "/teacher/create-class" }
   ];
 
   const studentLinks = [
-    { label: "Dashboard", path: "/student/dashboard" },
-    { label: "Join Class", path: "/student/join-class" },
-    { label: "Mark Attendance", path: "/student/mark-attendance" },
-    { label: "My Profile", path: "/student/profile" },
+    { label: "Dashboard", path: "/student/dashboard" },   
+    { label: "My Profile", path: "/student/profile" }
   ];
 
   const links = user?.role === "TEACHER" ? teacherLinks : studentLinks;

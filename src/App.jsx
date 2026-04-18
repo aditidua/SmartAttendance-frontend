@@ -17,7 +17,9 @@ import MarkAttendance from "./pages/student/MarkAttendance";
 import MyProfile from "./pages/student/MyProfile";
 
 export default function App() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) return null; // ✅ wait for auth before rendering any routes
 
   return (
     <Routes>
@@ -34,7 +36,6 @@ export default function App() {
       <Route element={<ProtectedRoute allowedRole="STUDENT" />}>
         <Route path="/student/dashboard" element={<StudentDashboard />} />
         <Route path="/student/class/:classId" element={<ClassDetail />} />
-        
         <Route path="/student/mark-attendance" element={<MarkAttendance />} />
         <Route path="/student/profile" element={<MyProfile />} />
       </Route>
