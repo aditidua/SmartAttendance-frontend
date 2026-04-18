@@ -1,12 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useRef} from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function OAuthCallback() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const hasRun = useRef(false);
 
   useEffect(() => {
+    if (hasRun.current) return; // ✅ prevents double run
+    hasRun.current = true;
     const params = new URLSearchParams(window.location.search);
 
     const token = params.get("token");
@@ -15,8 +18,12 @@ export default function OAuthCallback() {
     const message = params.get("message");
 
     // ✅ Case 1: Existing user (token + role)
+    console.log("TOKEN:", token);
+    console.log("ROLE:", role);
     if (token && role) {
+      console.log("existinguser");
       login(token);
+      console.log("Navigating to:", role);
 
       // 🔥 IMPORTANT: use replace to avoid back navigation issues
       if (role === "TEACHER") {
