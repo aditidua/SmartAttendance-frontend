@@ -20,6 +20,11 @@ export default function ClassDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // --- Assignments state ---
+  const [assignments, setAssignments] = useState([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [assignmentsError, setAssignmentsError] = useState("");
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -41,6 +46,28 @@ export default function ClassDetail() {
     };
     loadData();
   }, [classId]);
+
+  // Fetch assignments only when tab is opened
+  useEffect(() => {
+    if (activeTab !== "assignments") return;
+    const fetchAssignments = async () => {
+      setAssignmentsLoading(true);
+      setAssignmentsError("");
+      try {
+        const res = await axios.get(`${BASE_URL}/student/getAssignments`, {
+          params: { classId },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setAssignments(res.data);
+      } catch (err) {
+        setAssignmentsError("Failed to load assignments.");
+        console.error(err);
+      } finally {
+        setAssignmentsLoading(false);
+      }
+    };
+    fetchAssignments();
+  }, [activeTab, classId]);
 
   const attended = profile?.attendance?.length ?? 0;
   const total = profile?.totalClasses ?? 0;
@@ -197,7 +224,6 @@ export default function ClassDetail() {
                     </span>
                   </div>
 
-                  {/* Percentage display */}
                   <div className="flex items-end gap-2 mb-4">
                     <span className="text-4xl font-semibold" style={{ color: barColor }}>
                       {percentage}
@@ -205,7 +231,6 @@ export default function ClassDetail() {
                     <span className="text-lg mb-1" style={{ color: "#8fa8bc" }}>%</span>
                   </div>
 
-                  {/* Progress bar */}
                   <div className="w-full rounded-full" style={{ background: "#f0f4f8", height: "8px" }}>
                     <div
                       className="rounded-full transition-all"
@@ -213,7 +238,6 @@ export default function ClassDetail() {
                     />
                   </div>
 
-                  {/* Threshold markers */}
                   <div className="flex justify-between mt-2">
                     <span className="text-xs" style={{ color: "#dbe4ee" }}>0%</span>
                     <span className="text-xs" style={{ color: percentage >= 75 ? "#3b9e5e" : "#dbe4ee" }}>
@@ -228,26 +252,139 @@ export default function ClassDetail() {
 
             {/* Assignments Tab */}
             {activeTab === "assignments" && (
-              <div className="text-center py-20">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                  style={{ background: "#e6eef9" }}>
-                  <svg width="20" height="20" fill="none" stroke="#004DB2" strokeWidth="1.5" viewBox="0 0 24 24">
-                    <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-                    <rect x="9" y="3" width="6" height="4" rx="1" />
-                    <path d="M9 12h6M9 16h4" />
-                  </svg>
-                </div>
-                <p className="text-sm font-medium mb-1" style={{ color: "#004DB2" }}>
-                  Assignments coming soon
-                </p>
-                <p className="text-xs" style={{ color: "#8fa8bc" }}>
-                  This feature is under development.
-                </p>
+              <div className="flex flex-col gap-3">
+
+                {assignmentsLoading && (
+                  <div className="text-center py-16">
+                    <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-3"
+                      style={{ borderColor: "#dbe4ee", borderTopColor: "#004DB2" }} />
+                    <p className="text-sm" style={{ color: "#8fa8bc" }}>Loading assignments…</p>
+                  </div>
+                )}
+
+                {assignmentsError && (
+                  <div className="text-center py-16">
+                    <p className="text-sm" style={{ color: "#e24b4a" }}>{assignmentsError}</p>
+                  </div>
+                )}
+
+                {!assignmentsLoading && !assignmentsError && assignments.length === 0 && (
+                  <div className="text-center py-20">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                      style={{ background: "#e6eef9" }}>
+                      <svg width="20" height="20" fill="none" stroke="#004DB2" strokeWidth="1.5" viewBox="0 0 24 24">
+                        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                        <rect x="9" y="3" width="6" height="4" rx="1" />
+                        <path d="M9 12h6M9 16h4" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-medium mb-1" style={{ color: "#004DB2" }}>No assignments yet</p>
+                    <p className="text-xs" style={{ color: "#8fa8bc" }}>Your teacher hasn't posted anything yet.</p>
+                  </div>
+                )}
+
+                {!assignmentsLoading && !assignmentsError && assignments.map((a) => (
+                  <AssignmentCard
+                    key={a.id}
+                    assignment={a}
+                    studentId={user.id}
+                    token={token}
+                  />
+                ))}
+
               </div>
             )}
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function AssignmentCard({ assignment, studentId, token }) {
+  const [file, setFile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  const handleSubmit = async () => {
+    if (!file) return setSubmitError("Please select a file.");
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      const formData = new FormData();
+      formData.append("assignmentId", assignment.id);
+      formData.append("studentId", studentId);
+      formData.append("solution", file);
+
+      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/student/submitAssignment`, formData, {
+        headers: { Authorization: `Bearer ${token}` },
+        // do NOT set Content-Type — axios sets multipart boundary automatically
+      });
+
+      setSubmitted(true);
+      setFile(null);
+    } catch (err) {
+      setSubmitError("Submission failed. Please try again.");
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const due = assignment.dueDate ? new Date(assignment.dueDate) : null;
+  const diff = due ? Math.ceil((due - new Date()) / 86400000) : null;
+  const dueColor = diff === null ? "#8fa8bc" : diff < 0 ? "#e24b4a" : diff <= 2 ? "#e9a825" : "#004DB2";
+  const dueBg   = diff === null ? "#f0f4f8"  : diff < 0 ? "#fdecea"  : diff <= 2 ? "#fef8ec"  : "#e6eef9";
+  const dueLabel = diff === null ? "" : diff < 0 ? `Overdue · ${assignment.dueDate}` : diff <= 2 ? `Due soon · ${assignment.dueDate}` : `Due ${assignment.dueDate}`;
+
+  return (
+    <div className="bg-white rounded-2xl p-5" style={{ border: "0.5px solid #dbe4ee" }}>
+      <p className="text-sm font-medium mb-1" style={{ color: "#1a2e44" }}>{assignment.title}</p>
+
+      {assignment.description && (
+        <p className="text-xs mb-3" style={{ color: "#5a7a96", lineHeight: 1.6 }}>
+          {assignment.description}
+        </p>
+      )}
+
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        {assignment.postedAt && (
+          <span className="text-xs" style={{ color: "#8fa8bc" }}>Posted {assignment.postedAt}</span>
+        )}
+        {dueLabel && (
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+            style={{ background: dueBg, color: dueColor }}>
+            {dueLabel}
+          </span>
+        )}
+      </div>
+
+      {submitted ? (
+        <p className="text-xs font-medium" style={{ color: "#3b9e5e" }}>✓ Submitted successfully</p>
+      ) : (
+        <div className="flex items-center gap-3 flex-wrap">
+          <input
+            type="file"
+            onChange={(e) => { setFile(e.target.files[0]); setSubmitError(""); }}
+            className="text-xs"
+            style={{ color: "#1a2e44" }}
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="px-4 py-1.5 rounded-lg text-xs font-medium text-white"
+            style={{
+              background: submitting ? "#8fa8bc" : "#004DB2",
+              border: "none",
+              cursor: submitting ? "not-allowed" : "pointer",
+            }}
+          >
+            {submitting ? "Submitting…" : "Submit"}
+          </button>
+          {submitError && <span className="text-xs" style={{ color: "#e24b4a" }}>{submitError}</span>}
+        </div>
+      )}
     </div>
   );
 }
