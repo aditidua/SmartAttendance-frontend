@@ -307,6 +307,25 @@ function AssignmentCard({ assignment, studentId, token }) {
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
+  // ADD THIS — check real status from backend on mount
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/student/assignmentStatus`, {
+          params: {
+            assignmentId: assignment.id,
+            studentId,
+          },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setSubmitted(res.data); // backend returns true/false
+      } catch (err) {
+        console.error("Failed to check submission status", err);
+      }
+    };
+    checkStatus();
+  }, [assignment.id, studentId]); // re-runs if assignment or student changes
+
   const handleSubmit = async () => {
     if (!file) return setSubmitError("Please select a file.");
     setSubmitting(true);

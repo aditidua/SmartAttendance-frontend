@@ -61,3 +61,19 @@ export const postAssignment = async (classId, description, deadline, token) => {
     headers: authHeader(token),
   });
 };
+export const fetchAssignments = async (classId, token) => {
+  const response = await axios.get(`${BASE_URL}/teacher/getAssignment`, {
+    params: { classId },
+    headers: authHeader(token),
+  });
+  return response.data;
+};
+export const fetchSubmissions = async (assignmentId, token) => {
+  const response = await axios.get(
+    `${BASE_URL}/teacher/assignments/${assignmentId}/submissions`,
+    {
+      headers: authHeader(token),
+    }
+  );
+  return response.data;
+};

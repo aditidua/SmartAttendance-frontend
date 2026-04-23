@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { fetchClassAttendance, openAttendance, closeAttendance, getAttendanceStatus, postAssignment } from "../../api/teacherApi";
+import { fetchClassAttendance, openAttendance, closeAttendance, getAttendanceStatus, postAssignment, fetchAssignments, fetchSubmissions } from "../../api/teacherApi";
 import Navbar from "../../components/Navbar";
 
 export default function ClassAttendance() {
@@ -28,16 +28,19 @@ export default function ClassAttendance() {
   const [posting, setPosting] = useState(false);
   const [assignmentError, setAssignmentError] = useState("");
   const [assignmentSuccess, setAssignmentSuccess] = useState("");
+  const [submissions, setSubmissions] = useState({});
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [data, status] = await Promise.all([
+        const [data, status, assignmentData] = await Promise.all([
           fetchClassAttendance(classId, token),
           getAttendanceStatus(classId, token),
+          fetchAssignments(classId, token),
         ]);
         setAttendance(data);
         setSessionOpen(status);
+        setAssignments(assignmentData);  
         const allDates = [...new Set(data.flatMap((s) => s.presentDates))].sort();
         setDates(allDates);
       } catch (err) {
@@ -82,7 +85,8 @@ export default function ClassAttendance() {
     setAssignmentError("");
     try {
       await postAssignment(classId, description, deadline, token);
-      setAssignments((prev) => [...prev, { description, deadline }]);
+      const updated = await fetchAssignments(classId, token);
+      setAssignments(updated);
       setDescription("");
       setDeadline("");
       setShowForm(false);
@@ -95,6 +99,32 @@ export default function ClassAttendance() {
       setPosting(false);
     }
   };
+
+  const loadSubmissions = async (assignmentId) => {
+    try {
+      const data = await fetchSubmissions(assignmentId, token);
+      setSubmissions((prev) => ({
+        ...prev,
+        [assignmentId]: data,
+      }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const toggleSubmissions = async (assignmentId) => {
+  // If already open, just close it
+  if (submissions[assignmentId] !== undefined) {
+    setSubmissions((prev) => {
+      const updated = { ...prev };
+      delete updated[assignmentId];
+      return updated;
+    });
+    return;
+  }
+  // Otherwise fetch fresh data
+  await loadSubmissions(assignmentId);
+};
 
   return (
     <div className="min-h-screen" style={{ background: "#f0f4f8" }}>
@@ -377,21 +407,69 @@ export default function ClassAttendance() {
             ) : (
               <div className="flex flex-col gap-3">
                 {assignments.map((a, i) => (
-                  <div key={i} className="bg-white rounded-2xl p-5"
-                    style={{ border: "0.5px solid #dbe4ee" }}>
-                    <p className="text-sm mb-3" style={{ color: "#2c2c2a" }}>{a.description}</p>
-                    <div className="flex items-center gap-2">
-                      <svg width="12" height="12" fill="none" stroke="#8fa8bc" strokeWidth="1.5" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M12 6v6l4 2" />
-                      </svg>
+                  <div
+                    key={i}
+                    className="bg-white rounded-2xl p-5"
+                    style={{ border: "0.5px solid #dbe4ee" }}
+                  >
+                    <p className="text-sm mb-3" style={{ color: "#2c2c2a" }}>
+                      {a.description}
+                    </p>
+
+                    <div className="flex items-center justify-between">
                       <span className="text-xs" style={{ color: "#8fa8bc" }}>
                         Due: {new Date(a.deadline).toLocaleString("en-IN", {
-                          day: "2-digit", month: "short", year: "numeric",
-                          hour: "2-digit", minute: "2-digit"
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
                         })}
                       </span>
+
+                      {/* 🔥 BUTTON */}
+                      <button
+                        onClick={() => toggleSubmissions(a.id)}
+                        className="text-xs font-medium"
+                        style={{ color: "#004DB2" }}
+                      >
+                        View Submissions
+                      </button>
                     </div>
+
+                    {/* 🔥 SUBMISSIONS DISPLAY */}
+                    {submissions[a.id] && (
+                      <div className="mt-3 border-t pt-3">
+                        {submissions[a.id].length === 0 ? (
+                          <p className="text-xs" style={{ color: "#8fa8bc" }}>
+                            No submissions yet
+                          </p>
+                        ) : (
+                          submissions[a.id].map((s, idx) => {
+                            return (
+                              <div
+                                key={idx}
+                                className="flex justify-between items-center mb-2"
+                              >
+                                <span className="text-sm" style={{ color: "#2c2c2a" }}>
+                                  {s.student.name}
+                                </span>
+
+                                <a
+                                  href={s.submissionUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs"
+                                  style={{ color: "#22c55e" }}
+                                >
+                                  View File
+                                </a>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
